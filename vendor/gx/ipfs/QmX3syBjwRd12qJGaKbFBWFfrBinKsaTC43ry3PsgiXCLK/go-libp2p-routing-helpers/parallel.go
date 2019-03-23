@@ -3,6 +3,7 @@ package routinghelpers
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -124,6 +125,7 @@ func (r Parallel) put(do func(routing.IpfsRouting) error) error {
 	wg.Add(len(r.Routers))
 	for i, ri := range r.Routers {
 		go func(ri routing.IpfsRouting, i int) {
+			fmt.Println("$$$$ in Parallel.put i = ", i)
 			results[i] = do(ri)
 			wg.Done()
 		}(ri, i)
@@ -282,7 +284,10 @@ func (r Parallel) forKey(key string) Parallel {
 }
 
 func (r Parallel) PutValue(ctx context.Context, key string, value []byte, opts ...ropts.Option) error {
-	return r.forKey(key).put(func(ri routing.IpfsRouting) error {
+	fmt.Println("//////////// in Prallel.PutValue")
+
+	return r.put(func(ri routing.IpfsRouting) error {
+		fmt.Println("@@@@@@@", ri)
 		return ri.PutValue(ctx, key, value, opts...)
 	})
 }

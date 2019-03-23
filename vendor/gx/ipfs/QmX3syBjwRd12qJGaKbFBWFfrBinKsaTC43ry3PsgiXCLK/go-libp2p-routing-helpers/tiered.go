@@ -2,6 +2,7 @@ package routinghelpers
 
 import (
 	"context"
+	"fmt"
 
 	routing "gx/ipfs/QmcQ81jSyWCp1jpkQ8CMbtpXT3jK7Wg6ZtYmoyWFgBoF9c/go-libp2p-routing"
 	ropts "gx/ipfs/QmcQ81jSyWCp1jpkQ8CMbtpXT3jK7Wg6ZtYmoyWFgBoF9c/go-libp2p-routing/options"
@@ -22,6 +23,7 @@ type Tiered struct {
 }
 
 func (r Tiered) PutValue(ctx context.Context, key string, value []byte, opts ...ropts.Option) error {
+	fmt.Println("//////////// in Tiered.PutValue")
 	return Parallel{Routers: r.Routers}.PutValue(ctx, key, value, opts...)
 }
 

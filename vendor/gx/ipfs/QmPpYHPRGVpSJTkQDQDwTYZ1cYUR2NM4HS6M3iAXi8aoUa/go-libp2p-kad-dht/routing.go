@@ -3,6 +3,8 @@ package dht
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sync"
@@ -37,6 +39,9 @@ var asyncQueryBuffer = 10
 // PutValue adds value corresponding to given Key.
 // This is the top level "Store" operation of the DHT
 func (dht *IpfsDHT) PutValue(ctx context.Context, key string, value []byte, opts ...ropts.Option) (err error) {
+	fmt.Println("!!!!!!!!!! dht PutValue:", key)
+	fmt.Println("!!!!!!!!!! dht PutValue:", hex.EncodeToString([]byte(key)), hex.EncodeToString(value))
+	// panic("")
 	eip := log.EventBegin(ctx, "PutValue")
 	defer func() {
 		eip.Append(loggableKey(key))
@@ -112,6 +117,8 @@ type RecvdVal struct {
 
 // GetValue searches for the value corresponding to given Key.
 func (dht *IpfsDHT) GetValue(ctx context.Context, key string, opts ...ropts.Option) (_ []byte, err error) {
+	fmt.Println("!!!!!!!!!! dht GetValue:", key)
+	// panic("")
 	eip := log.EventBegin(ctx, "GetValue")
 	defer func() {
 		eip.Append(loggableKey(key))
@@ -150,6 +157,8 @@ func (dht *IpfsDHT) GetValue(ctx context.Context, key string, opts ...ropts.Opti
 }
 
 func (dht *IpfsDHT) SearchValue(ctx context.Context, key string, opts ...ropts.Option) (<-chan []byte, error) {
+	fmt.Println("!!!!!!!!!! dht SearchValue:", key)
+	// panic("")
 	var cfg ropts.Options
 	if err := cfg.Apply(opts...); err != nil {
 		return nil, err
@@ -252,6 +261,8 @@ func (dht *IpfsDHT) SearchValue(ctx context.Context, key string, opts ...ropts.O
 
 // GetValues gets nvals values corresponding to the given key.
 func (dht *IpfsDHT) GetValues(ctx context.Context, key string, nvals int) (_ []RecvdVal, err error) {
+	fmt.Println("!!!!!!!!!! dht GetValues:", key)
+	// panic("")
 	eip := log.EventBegin(ctx, "GetValues")
 
 	eip.Append(loggableKey(key))
@@ -397,6 +408,8 @@ func (dht *IpfsDHT) getValues(ctx context.Context, key string, nvals int) (<-cha
 
 // Provide makes this node announce that it can provide a value for the given key
 func (dht *IpfsDHT) Provide(ctx context.Context, key cid.Cid, brdcst bool) (err error) {
+	fmt.Println("!!!!!!!!!! dht Provide:", key)
+	// panic("")
 	eip := log.EventBegin(ctx, "Provide", key, logging.LoggableMap{"broadcast": brdcst})
 	defer func() {
 		if err != nil {
@@ -455,6 +468,8 @@ func (dht *IpfsDHT) makeProvRecord(skey cid.Cid) (*pb.Message, error) {
 
 // FindProviders searches until the context expires.
 func (dht *IpfsDHT) FindProviders(ctx context.Context, c cid.Cid) ([]pstore.PeerInfo, error) {
+	fmt.Println("!!!!!!!!!! dht FindProviders")
+	// panic("")
 	var providers []pstore.PeerInfo
 	for p := range dht.FindProvidersAsync(ctx, c, KValue) {
 		providers = append(providers, p)
@@ -466,6 +481,8 @@ func (dht *IpfsDHT) FindProviders(ctx context.Context, c cid.Cid) ([]pstore.Peer
 // Peers will be returned on the channel as soon as they are found, even before
 // the search query completes.
 func (dht *IpfsDHT) FindProvidersAsync(ctx context.Context, key cid.Cid, count int) <-chan pstore.PeerInfo {
+	fmt.Println("!!!!!!!!!! dht FindProvidersAsync:", key)
+	// panic("")
 	log.Event(ctx, "findProviders", key)
 	peerOut := make(chan pstore.PeerInfo, count)
 	go dht.findProvidersAsyncRoutine(ctx, key, count, peerOut)
@@ -569,6 +586,10 @@ func (dht *IpfsDHT) findProvidersAsyncRoutine(ctx context.Context, key cid.Cid, 
 
 // FindPeer searches for a peer with given ID.
 func (dht *IpfsDHT) FindPeer(ctx context.Context, id peer.ID) (_ pstore.PeerInfo, err error) {
+	fmt.Println("!!!!!!!!!! dht FindPeer:", id)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+	defer cancel()
+
 	eip := log.EventBegin(ctx, "FindPeer", id)
 	defer func() {
 		if err != nil {
@@ -579,17 +600,20 @@ func (dht *IpfsDHT) FindPeer(ctx context.Context, id peer.ID) (_ pstore.PeerInfo
 
 	// Check if were already connected to them
 	if pi := dht.FindLocal(id); pi.ID != "" {
+		fmt.Println("########### a")
 		return pi, nil
 	}
 
 	peers := dht.routingTable.NearestPeers(kb.ConvertPeerID(id), AlphaValue)
 	if len(peers) == 0 {
+		fmt.Println("########### b")
 		return pstore.PeerInfo{}, kb.ErrLookupFailure
 	}
 
 	// Sanity...
 	for _, p := range peers {
 		if p == id {
+			fmt.Println("########### c")
 			log.Debug("found target peer in list of closest peers...")
 			return dht.peerstore.PeerInfo(p), nil
 		}
@@ -603,6 +627,7 @@ func (dht *IpfsDHT) FindPeer(ctx context.Context, id peer.ID) (_ pstore.PeerInfo
 			ID:   p,
 		})
 
+		fmt.Println("------- calling findPeerSingle")
 		pmes, err := dht.findPeerSingle(ctx, p, id)
 		if err != nil {
 			return nil, err
@@ -612,6 +637,7 @@ func (dht *IpfsDHT) FindPeer(ctx context.Context, id peer.ID) (_ pstore.PeerInfo
 		clpeerInfos := pb.PBPeersToPeerInfos(closer)
 
 		// see if we got the peer here
+		fmt.Println("found", len(clpeerInfos), "peers to check")
 		for _, npi := range clpeerInfos {
 			if npi.ID == id {
 				return &dhtQueryResult{
@@ -633,10 +659,17 @@ func (dht *IpfsDHT) FindPeer(ctx context.Context, id peer.ID) (_ pstore.PeerInfo
 	// run it!
 	result, err := query.Run(ctx, peers)
 	if err != nil {
+		fmt.Println("########### d")
 		return pstore.PeerInfo{}, err
 	}
-
 	log.Debugf("FindPeer %v %v", id, result.success)
+
+	jsonBytes, err := json.Marshal(result.peer)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("!!!!!!! dht FindPeer found peer for", id, *result.peer, string(jsonBytes))
 	if result.peer.ID == "" {
 		return pstore.PeerInfo{}, routing.ErrNotFound
 	}
