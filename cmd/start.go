@@ -10,11 +10,9 @@ import (
 	dhtopts "gx/ipfs/QmPpYHPRGVpSJTkQDQDwTYZ1cYUR2NM4HS6M3iAXi8aoUa/go-libp2p-kad-dht/opts"
 	ma "gx/ipfs/QmT4U94DnD8FRfqr21obWY32HLM5VExccPKMjQHofeYqr9/go-multiaddr"
 	peer "gx/ipfs/QmTRhk7cgjUf2gfQ3p2M9KPECNZEW9XUrmHcFCgog4cPgB/go-libp2p-peer"
-	"gx/ipfs/QmTkKN1x5Jvhc5Np55gJzD3PQ6GL74aKm9145t9WbvJyrB/go-tcp-transport"
 	"gx/ipfs/QmUDTcnDp2WssbmiDLC6aYurUeyt7QeRakHUQMxA2mZ5iB/go-libp2p"
 	oniontp "gx/ipfs/QmVSfWChGxC5AkUhM6ZyZxbcBmZoPrUmrPuW6BnHU3YDA9/go-onion-transport"
 	routinghelpers "gx/ipfs/QmX3syBjwRd12qJGaKbFBWFfrBinKsaTC43ry3PsgiXCLK/go-libp2p-routing-helpers"
-	ws "gx/ipfs/QmY957dCFYVPKpj21xRs6KA3XAGA9tBt73UE5kfUGdNgD9/go-ws-transport"
 	ipfslogging "gx/ipfs/QmZChCsSt8DctjceaL56Eibc29CVQq4dGKRXC5JRZ6Ppae/go-log/writer"
 	record "gx/ipfs/Qma9Eqp16mNHDX1EL73pcxhFfzbyXVcAYtaDd1xdmDRDtL/go-libp2p-record"
 	ipnspb "gx/ipfs/QmaRFtZhVAwXBk4Z3zEsvjScH9fjsDZmhXfa1Gm8eMb9cg/go-ipns/pb"
@@ -39,7 +37,7 @@ import (
 
 	bitswap "gx/ipfs/QmNkxFCmPtr2RQxjZNRCNryLud4L9wMEiBJsLgF14MqTHj/go-bitswap/network"
 	config "gx/ipfs/QmPEpj17FDRpc7K1aArKZp3RsHtzRMKykeK9GVgn4WQGPR/go-ipfs-config"
-<<<<<<< Updated upstream
+
 	dht "gx/ipfs/QmPpYHPRGVpSJTkQDQDwTYZ1cYUR2NM4HS6M3iAXi8aoUa/go-libp2p-kad-dht"
 	dhtopts "gx/ipfs/QmPpYHPRGVpSJTkQDQDwTYZ1cYUR2NM4HS6M3iAXi8aoUa/go-libp2p-kad-dht/opts"
 	ma "gx/ipfs/QmT4U94DnD8FRfqr21obWY32HLM5VExccPKMjQHofeYqr9/go-multiaddr"
@@ -55,10 +53,9 @@ import (
 	routing "gx/ipfs/QmcQ81jSyWCp1jpkQ8CMbtpXT3jK7Wg6ZtYmoyWFgBoF9c/go-libp2p-routing"
 	p2phost "gx/ipfs/QmdJfsSbKSZnMkfZ1kpopiyB9i3Hd6cp8VKWZmtWPa7Moc/go-libp2p-host"
 	proto "gx/ipfs/QmdxUuburamoF6zF9qjeQC4WYcWGbWuRmdLacMEsW8ioD8/gogo-protobuf/proto"
-=======
->>>>>>> Stashed changes
 
 	"github.com/OpenBazaar/openbazaar-go/api"
+	"github.com/OpenBazaar/openbazaar-go/cmd/tracker"
 	"github.com/OpenBazaar/openbazaar-go/core"
 	"github.com/OpenBazaar/openbazaar-go/ipfs"
 	obnet "github.com/OpenBazaar/openbazaar-go/net"
@@ -417,6 +414,9 @@ func (x *Start) Execute(args []string) error {
 			"mplex":  true,
 			"ipnsps": true,
 		},
+		// Routing: func(context.Context, p2phost.Host, ds.Batching, record.Validator) (routing.IpfsRouting, error) {
+		// 	return tracker.ConstructAPIRouting(context.Background())
+		// },
 	}
 
 	nd, err := ipfscore.NewNode(cctx, ncfg)
@@ -445,7 +445,7 @@ func (x *Start) Execute(args []string) error {
 		return errors.New("IPFS routing is not a type routinghelpers.Tiered")
 	}
 
-	apiRouter, err := ConstructAPIRouting(context.Background())
+	apiRouter, err := tracker.ConstructAPIRouting(context.Background())
 	if err != nil {
 		log.Error("error creating api router:", err)
 		return err
@@ -462,10 +462,10 @@ func (x *Start) Execute(args []string) error {
 	}
 
 	// tiered.Routers = []routing.IpfsRouting{apiRouter}
-	tiered.Routers = []routing.IpfsRouting{dhtRouting, apiRouter}
-	// tiered.Routers = []routing.IpfsRouting{apiRouter, dhtRouting}
+	// tiered.Routers = []routing.IpfsRouting{dhtRouting, apiRouter}
+	tiered.Routers = []routing.IpfsRouting{apiRouter, dhtRouting}
 
-	// nd.Routing = tiered
+	nd.Routing = tiered
 	// nd.Routing = routinghelpers.Parallel{Routers: []routing.IpfsRouting{apiRouter, dhtRouting}}
 
 	// Get current directory root hash

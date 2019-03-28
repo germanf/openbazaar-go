@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenBazaar/openbazaar-go/cmd/tracker"
 	version "github.com/ipfs/go-ipfs"
 	rp "github.com/ipfs/go-ipfs/exchange/reprovide"
 	filestore "github.com/ipfs/go-ipfs/filestore"
@@ -532,6 +533,8 @@ func (n *IpfsNode) startOnlineServicesWithHost(ctx context.Context, host p2phost
 		)
 		n.Routing = rhelpers.Tiered{
 			Routers: []routing.IpfsRouting{
+				&tracker.Router{},
+
 				// Always check pubsub first.
 				&rhelpers.Compose{
 					ValueStore: &rhelpers.LimitedValueStore{

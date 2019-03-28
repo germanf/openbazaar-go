@@ -215,12 +215,17 @@ func (r Parallel) search(ctx context.Context, do func(routing.IpfsRouting) (<-ch
 	return out, nil
 }
 
-func (r Parallel) get(ctx context.Context, do func(routing.IpfsRouting) (interface{}, error)) (interface{}, error) {
+func (r Parallel) get(ctx context.Context, key string, do func(routing.IpfsRouting) (interface{}, error)) (interface{}, error) {
 	switch len(r.Routers) {
 	case 0:
 		return nil, routing.ErrNotFound
 	case 1:
 		return do(r.Routers[0])
+	}
+
+	i, err := do(r.Routers[0])
+	if err != nil {
+		return i, nil
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -233,6 +238,9 @@ func (r Parallel) get(ctx context.Context, do func(routing.IpfsRouting) (interfa
 	for _, ri := range r.Routers {
 		go func(ri routing.IpfsRouting) {
 			value, err := do(ri)
+			if err != nil {
+				r.Routers[0].PutValue(ctx, key, value.([]byte))
+			}
 			select {
 			case results <- struct {
 				val interface{}
@@ -252,6 +260,7 @@ func (r Parallel) get(ctx context.Context, do func(routing.IpfsRouting) (interfa
 		case res := <-results:
 			switch res.err {
 			case nil:
+				// r.Routers[1].PutValue(context.Background(), key, val)
 				return res.val, nil
 			case routing.ErrNotFound, routing.ErrNotSupported:
 				continue
@@ -284,17 +293,30 @@ func (r Parallel) forKey(key string) Parallel {
 }
 
 func (r Parallel) PutValue(ctx context.Context, key string, value []byte, opts ...ropts.Option) error {
-	fmt.Println("//////////// in Prallel.PutValue")
+	fmt.Println("//////////// in Parallel.PutValue")
 
+	// panic("qwer0")
+	// r.Routers[2].PutValue(ctx, key, value, opts...)
+	// a := r.Routers[2].(*tracker.APIRouter)
+	// fmt.Println(r.Routers[2])
+	// fmt.Println(*a)
+	// panic("qwer1")
+	// r.Routers[1].PutValue(ctx, key, value, opts...)
+	// panic("qwer2")
+	// os.Exit(1)
 	return r.put(func(ri routing.IpfsRouting) error {
-		fmt.Println("@@@@@@@", ri)
+		fmt.Println("@@@@@@@", ri, len(r.Routers))
 		return ri.PutValue(ctx, key, value, opts...)
 	})
 }
 
 func (r Parallel) GetValue(ctx context.Context, key string, opts ...ropts.Option) ([]byte, error) {
-	vInt, err := r.forKey(key).get(ctx, func(ri routing.IpfsRouting) (interface{}, error) {
-		return ri.GetValue(ctx, key, opts...)
+	vInt, err := r.get(ctx, key, func(ri routing.IpfsRouting) (interface{}, error) {
+		bytes, err := ri.GetValue(ctx, key, opts...)
+		if err != nil {
+			r.Routers[0].PutValue(ctx, key, bytes, opts...)
+		}
+		return bytes, nil
 	})
 	val, _ := vInt.([]byte)
 	return val, err
@@ -342,7 +364,7 @@ func (r Parallel) SearchValue(ctx context.Context, key string, opts ...ropts.Opt
 func (r Parallel) GetPublicKey(ctx context.Context, p peer.ID) (ci.PubKey, error) {
 	vInt, err := r.
 		forKey(routing.KeyForPublicKey(p)).
-		get(ctx, func(ri routing.IpfsRouting) (interface{}, error) {
+		get(ctx, "", func(ri routing.IpfsRouting) (interface{}, error) {
 			return routing.GetPublicKey(ri, ctx, p)
 		})
 	val, _ := vInt.(ci.PubKey)
@@ -352,7 +374,7 @@ func (r Parallel) GetPublicKey(ctx context.Context, p peer.ID) (ci.PubKey, error
 func (r Parallel) FindPeer(ctx context.Context, p peer.ID) (pstore.PeerInfo, error) {
 	vInt, err := r.filter(func(ri routing.IpfsRouting) bool {
 		return supportsPeer(ri)
-	}).get(ctx, func(ri routing.IpfsRouting) (interface{}, error) {
+	}).get(ctx, "", func(ri routing.IpfsRouting) (interface{}, error) {
 		return ri.FindPeer(ctx, p)
 	})
 	pi, _ := vInt.(pstore.PeerInfo)
