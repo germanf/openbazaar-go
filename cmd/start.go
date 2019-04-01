@@ -55,7 +55,6 @@ import (
 	proto "gx/ipfs/QmdxUuburamoF6zF9qjeQC4WYcWGbWuRmdLacMEsW8ioD8/gogo-protobuf/proto"
 
 	"github.com/OpenBazaar/openbazaar-go/api"
-	"github.com/OpenBazaar/openbazaar-go/cmd/tracker"
 	"github.com/OpenBazaar/openbazaar-go/core"
 	"github.com/OpenBazaar/openbazaar-go/ipfs"
 	obnet "github.com/OpenBazaar/openbazaar-go/net"
@@ -445,12 +444,6 @@ func (x *Start) Execute(args []string) error {
 		return errors.New("IPFS routing is not a type routinghelpers.Tiered")
 	}
 
-	apiRouter, err := tracker.ConstructAPIRouting(context.Background())
-	if err != nil {
-		log.Error("error creating api router:", err)
-		return err
-	}
-
 	var dhtRouting *dht.IpfsDHT
 	for _, router := range tiered.Routers {
 		if _, ok := router.(*dht.IpfsDHT); ok {
@@ -461,12 +454,12 @@ func (x *Start) Execute(args []string) error {
 		return errors.New("IPFS DHT routing is not configured")
 	}
 
-	// tiered.Routers = []routing.IpfsRouting{apiRouter}
-	// tiered.Routers = []routing.IpfsRouting{dhtRouting, apiRouter}
-	tiered.Routers = []routing.IpfsRouting{apiRouter, dhtRouting}
-
-	nd.Routing = tiered
-	// nd.Routing = routinghelpers.Parallel{Routers: []routing.IpfsRouting{apiRouter, dhtRouting}}
+	// Replace router with a CachingRouter that uses an APIRouter backend
+	nd.Routing, err = ipfs.NewCachingRouter(ipfs.APIRouter{URI: "https://routing.api.openbazaar.org"}, tiered)
+	if err != nil {
+		log.Error("error creating caching router:", err)
+		return err
+	}
 
 	// Get current directory root hash
 	ipnskey := namesys.IpnsDsKey(nd.Identity)

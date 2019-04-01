@@ -16,7 +16,7 @@ var apiRouterHTTPClient = &http.Client{
 }
 
 type APIRouter struct {
-	uri string
+	URI string
 }
 
 func (r APIRouter) PutValue(ctx context.Context, key string, value []byte, opts ...ropts.Option) error {
